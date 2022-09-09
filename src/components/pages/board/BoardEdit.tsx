@@ -1,22 +1,40 @@
 import React, { FC, FormEvent, useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import { RootState } from "../../../store";
-import { registerBoard } from "../../../store/actions/boardActions";
+import {
+  registerBoard,
+  fetchBoardById,
+  editBoard,
+} from "../../../store/actions/boardActions";
 import Input from "../../UI/Input";
 import Button from "../../UI/Button";
-import { useHistory } from "react-router-dom";
+import { useHistory, useParams } from "react-router-dom";
 import Textarea from "../../UI/Textarea";
 import Message from "../../UI/Message";
 import { setError } from "../../../store/actions/pageActions";
 
-const BoardRegister: FC = () => {
+const BoardEdit: FC = () => {
   let history = useHistory();
+  let { id } = useParams<{ id: string }>();
   const { user } = useAppSelector((state: RootState) => state.auth);
   const { error, submitted } = useAppSelector((state: RootState) => state.page);
+  const { board } = useAppSelector((state: RootState) => state.board);
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchBoardById(id));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (board) {
+      setTitle(board.title);
+      setContent(board.content);
+    }
+  }, [board]);
 
   useEffect(() => {
     return () => {
@@ -38,10 +56,8 @@ const BoardRegister: FC = () => {
       dispatch(setError(""));
     }
     setLoading(true);
-    if (user) {
-      dispatch(
-        registerBoard({ title, content }, user, () => setLoading(false))
-      );
+    if (user && board && user.id === board.author) {
+      dispatch(editBoard(id, { title, content }, () => setLoading(false)));
     }
   };
 
@@ -78,4 +94,4 @@ const BoardRegister: FC = () => {
   );
 };
 
-export default BoardRegister;
+export default BoardEdit;

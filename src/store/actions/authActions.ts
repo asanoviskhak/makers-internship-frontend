@@ -1,24 +1,25 @@
 import { ThunkAction } from 'redux-thunk';
-
+import { setDoc, doc, serverTimestamp, getDoc } from "firebase/firestore"; 
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut } from "firebase/auth";
+import {auth, db} from '../../firebase/config';
 import {SignUpData, AuthAction, SET_USER, User, SIGN_OUT, SignInData, NEED_VERIFICATION} from '../types';
 import { RootState } from '..';
-import firebase from '../../firebase/config';
 import {endLoading, setError, setSuccess, startLoading} from "./pageActions";
 
 // Create user
 export const signup = (data: SignUpData, onError: () => void): ThunkAction<void, RootState, null, AuthAction> => {
     return async dispatch => {
         try {
-            const res = await firebase.auth().createUserWithEmailAndPassword(data.email, data.password);
+            const res = await createUserWithEmailAndPassword(auth, data.email, data.password);
             if(res.user) {
                 const userData: User = {
                     email: data.email,
                     firstName: data.firstName,
                     id: res.user.uid,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    createdAt: serverTimestamp()
                 };
-                await firebase.firestore().collection('/users').doc(res.user.uid).set(userData);
-                await res.user.sendEmailVerification();
+                await setDoc(doc(db,'users', res.user.uid), userData);
+                await sendEmailVerification(res.user);
                 dispatch({
                     type: NEED_VERIFICATION
                 });
@@ -39,8 +40,8 @@ export const signup = (data: SignUpData, onError: () => void): ThunkAction<void,
 export const getUserById = (id: string): ThunkAction<void, RootState, null, AuthAction> => {
     return async dispatch => {
         try {
-            const user = await firebase.firestore().collection('users').doc(id).get();
-            if(user.exists) {
+            const user = await getDoc(doc(db, 'users', id));
+            if(user.exists()) {
                 const userData = user.data() as User;
                 dispatch({
                     type: SET_USER,
@@ -57,7 +58,7 @@ export const getUserById = (id: string): ThunkAction<void, RootState, null, Auth
 export const signin = (data: SignInData, onError: () => void): ThunkAction<void, RootState, null, AuthAction> => {
     return async dispatch => {
         try {
-            await firebase.auth().signInWithEmailAndPassword(data.email, data.password);
+            await signInWithEmailAndPassword(auth ,data.email, data.password);
         } catch (err: any) {
             console.log(err);
             onError();
@@ -71,7 +72,7 @@ export const signout = (): ThunkAction<void, RootState, null, AuthAction> => {
     return async dispatch => {
         try {
             dispatch(startLoading);
-            await firebase.auth().signOut();
+            await signOut(auth);
             dispatch({
                 type: SIGN_OUT
             });
@@ -92,10 +93,10 @@ export const setNeedVerification = (): ThunkAction<void, RootState, null, AuthAc
 }
 
 // Send password reset email
-export const sendPasswordResetEmail = (email: string, successMsg: string): ThunkAction<void, RootState, null, AuthAction> => {
+export const sendPasswordReset = (email: string, successMsg: string): ThunkAction<void, RootState, null, AuthAction> => {
     return async dispatch => {
         try {
-            await firebase.auth().sendPasswordResetEmail(email);
+            await sendPasswordResetEmail(auth, email);
             dispatch(setSuccess(successMsg));
         } catch (err: any) {
             console.log(err);
